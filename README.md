@@ -8,6 +8,8 @@ This takes about 20 minutes, and the resulting SQLite database is about 12GB.
 
 ### Making videos
 
+![\[cc\]](https://github.com/acadiansith/place-data/blob/main/cc.gif)
+
 Likely the most common use-case for the data will be to make time-lapse videos
 of r/place.
 To create a video, try something like this:
