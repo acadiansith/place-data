@@ -16,7 +16,7 @@ from tqdm import tqdm
 DATA_FN_FMT = '2022_place_canvas_history-{id:012d}.csv.gzip'
 MAX_DATA_FN_ID = 78
 DB_FN = 'place2022.db'
-BLACK_HTML = '#000000'
+WHITE_RGB = (255, 255, 255)
 
 
 class PlaceDB(object):
@@ -34,32 +34,54 @@ class PlaceDB(object):
 
         atexit.register(self.cleanup)
     
-    def get_frame_at(self, x, y, w, h, ts):
+    def get_frame_at(self, x, y, w, h, ts, table_name=None, base_image=None):
 
         if isinstance(ts, datetime):
             ts = _datetime_to_ts(ts)
 
-        im = Image.new('RGB', (w, h))
+        if base_image is None:
+            im = Image.new('RGB', (w, h), WHITE_RGB)
+        else:
+            im = base_image.copy()
+
         for x_it in range(w):
             for y_it in range(h):
-                html, pixel_ts  = self.get_pixel_at(x + x_it, y + y_it, ts)
+                html, _  = self.get_pixel_at(x + x_it, y + y_it, ts, table_name=table_name)
                 if html is not None:
                     im.putpixel((x_it, y_it), ImageColor.getcolor(html, 'RGB'))
         
         return im
 
-    def get_pixel_at(self, x, y, ts):
+    def get_pixel_at(self, x, y, ts, table_name=None):
 
         if isinstance(ts, datetime):
             ts = _datetime_to_ts(ts)
 
-        self.cur.execute('''SELECT html, max(timestamp) 
-                            FROM pixels 
-                            INNER JOIN colors ON pixels.color = colors.color
-                            WHERE x = ? AND y = ? AND timestamp <= ?''', (x, y, ts))
+        if table_name is None:
+            table_name = 'pixels'
+        table_name = _safe_table_name(table_name)
+
+        self.cur.execute(f'''SELECT html, max(timestamp) 
+                            FROM {table_name}
+                            INNER JOIN colors ON {table_name}.color = colors.color
+                            WHERE x = ? AND y = ? AND timestamp <= ?''', 
+                            (x, y, ts))
         html, pixel_ts = self.cur.fetchone()
 
         return html, pixel_ts
+    
+    def create_temp_window_table(self, x, y, w, h, start_ts, end_ts, table_name=None):
+        
+        if table_name is None:
+            table_name = 'temp_pixels'
+        table_name = _safe_table_name(table_name)
+
+        self.cur.execute(f'''CREATE TEMP TABLE {table_name} AS SELECT * FROM pixels 
+                            WHERE x >= ? AND x < ? AND y >= ? AND y < ? AND timestamp > ? AND timestamp <= ?''',
+                            (x, x + w, y, y + h, start_ts, end_ts))
+        self.cur.execute(f'CREATE INDEX idx_{table_name}_xy_timestamp ON {table_name} (x, y, timestamp)')
+
+        return table_name
 
     def cleanup(self):
 
@@ -78,6 +100,10 @@ class PlaceDB(object):
 
 def _datetime_to_ts(dt):
     return int(dt.timestamp() * 10 ** 6)
+
+
+def _safe_table_name(table_name):
+    return table_name.replace(';', '_')
 
 
 def _build_db(data_dir):

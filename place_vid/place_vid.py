@@ -35,16 +35,24 @@ class PlaceVideo(VideoClip):
 
         self.scale = scale
 
+        self.base_frame = self.db.get_frame_at(*self.rect, self.ts)
+        self.temp_table_name = self.db.create_temp_window_table(*self.rect, self.ts, self.ts + self.speed * duration * 10 ** 6)
+
         super().__init__(self.make_frame, duration=duration)
     
     def make_frame(self, t=0):
-        
-        ts = self.ts + self.speed * t * 10 ** 6
-        im = self.db.get_frame_at(*self.rect, ts)
+
+        if t <= 0:
+            im = self.base_frame.copy()
+        else:
+            ts = self.ts + self.speed * t * 10 ** 6
+            im = self.db.get_frame_at(*self.rect, ts, table_name=self.temp_table_name, base_image=self.base_frame)
+
         if self.scale != 1:
             _, _, w, h = self.rect
             im = im.resize((int(self.scale * w), int(self.scale * h)), Image.NEAREST)
         return np.asarray(im)
+
 
 if __name__ == '__main__':
 
@@ -52,7 +60,9 @@ if __name__ == '__main__':
 
     if len(sys.argv) < 2:
         print('Must supply path to databse file `place2022.db`')
+        exit()
     
     db = PlaceDB(sys.argv[1])
-    pv = PlaceVideo(db, 35, 148, 11, 9, ts=ts, speed='normal', scale=64, duration=28)
-    pv.write_videofile('movie.mp4', fps=24)
+    pv = PlaceVideo(db, 35, 148, 11, 9, ts=ts, speed='normal', scale=16, duration=26)
+    #pv.write_videofile('movie.mp4', fps=24)
+    pv.write_gif('cc.gif', fps=15)
