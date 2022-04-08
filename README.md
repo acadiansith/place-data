@@ -27,7 +27,7 @@ place_video.write_gif('cc.gif', fps=15)
 
 Here the calling structure of the `PlaceVideo` constructor is
 ```python
-    PlaceVideo(db, x, y, w, h, ts=None, speed='normal', scale=1, duration=None)
+PlaceVideo(db, x, y, w, h, ts=None, speed='normal', scale=1, duration=None)
 ```
 where
 - `db` is the filename of the database file created by `place_vid/place_db.py`
